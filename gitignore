@@ -1,0 +1,100 @@
+# ================================================
+# CLOUDTASKS - ARCHIVO .gitignore
+# Archivos y carpetas que no se deben versionar
+# ================================================
+
+# Archivos del sistema operativo
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Editores de código
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+.vim/
+.emacs.d/
+
+# IDE JetBrains
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# Node.js (si en futuro se usa)
+node_modules/
+npm-debug.log
+yarn-error.log
+package-lock.json
+yarn.lock
+
+# Archivos de configuración local
+.env
+.env.local
+.env.*.local
+
+# Archivos temporales
+*.tmp
+*.temp
+*.log
+*.cache
+
+# Base de datos local (SQLite, etc)
+*.db
+*.sqlite
+*.sqlite3
+
+# Archivos de compilación
+*.o
+*.pyc
+__pycache__/
+*.class
+
+# Carpetas de build
+dist/
+build/
+out/
+
+# Archivos de secretos y credenciales
+secrets.json
+credentials.json
+.apikeys
+
+# Sistema de archivos y backups
+*.bak
+*.backup
+*~
+
+# Archivos específicos de desarrollo
+debug.log
+error.log
+
+# Dependencias de Vercel (futuro)
+.vercel/
+
+# Archivos de prueba local
+test-results/
+coverage/
+
+# Archivos MAC
+.AppleDouble
+.LSOverride
+
+# Archivos de arranque de Windows
+Thumbs.db
+
+# Carpetas personales de desarrollador
+personal/
+notes/
+scratch/
