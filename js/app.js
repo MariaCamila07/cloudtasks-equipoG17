@@ -5,9 +5,9 @@
 
 // Variables globales
 let tareas = [];
-let idContador = 1;
 let filtroActual = 'todas';
 let busquedaActual = '';
+let cargando = false; 
 
 // ===============================================
 // INICIALIZACIÓN DE LA APLICACIÓN
@@ -17,15 +17,17 @@ document.addEventListener('DOMContentLoaded', () => {
     inicializarAplicacion();
 });
 
-function inicializarAplicacion() {
-    // Cargar tareas del localStorage si existen
-    cargarTareasDelLocal();
-    
-    // Agregar event listeners
-    agregarEventListeners();
-    
-    // Mostrar tareas iniciales
-    mostrarTareas();
+async function inicializarAplicacion() {
+    try {
+        mostrarCargando(true);
+        agregarEventListeners();
+        await cargarTareasDesdeSupabase();
+        mostrarCargando(false);
+    } catch (error) {
+        console.error('Error al inicializar:', error);
+        mostrarError('Error al inicializar la aplicación: ' + error.message);
+        mostrarCargando(false);
+    }
 }
 
 // ===============================================
@@ -48,52 +50,132 @@ function agregarEventListeners() {
     });
 }
 
+
+// ===============================================
+// OPERACIONES CON SUPABASE
+// ===============================================
+
+// CREATE - Crear nueva tarea
+async function crearTareaEnSupabase(titulo, descripcion, deadline, prioridad) {
+    try {
+        const { data, error } = await supabaseClient
+            .from('tasks')
+            .insert([
+                {
+                    title: titulo,
+                    description: descripcion || null,
+                    deadline: deadline || null,
+                    priority: prioridad,
+                    completed: false
+                }
+            ])
+            .select();
+
+        if (error) throw error;
+        console.log('Tarea creada:', data);
+        return data[0];
+    } catch (error) {
+        console.error('Error al crear tarea:', error);
+        throw error;
+    }
+}
+
+// READ - Cargar todas las tareas
+async function cargarTareasDesdeSupabase() {
+    try {
+        mostrarCargando(true);
+
+        const { data, error } = await supabaseClient
+            .from('tasks')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        tareas = data || [];
+        console.log('Tareas cargadas:', tareas);
+        mostrarTareas();
+
+        return tareas;
+    } catch (error) {
+        console.error('Error al cargar tareas:', error);
+        mostrarError('Error al cargar tareas: ' + error.message);
+        throw error;
+    } finally {
+        mostrarCargando(false);
+    }
+}
+
+// UPDATE - Actualizar estado de tarea
+async function actualizarTareaEnSupabase(id, datos) {
+    try {
+        const { error } = await supabaseClient
+            .from('tasks')
+            .update(datos)
+            .eq('id', id);
+
+        if (error) throw error;
+        console.log('Tarea actualizada:', id);
+        return true;
+    } catch (error) {
+        console.error('Error al actualizar tarea:', error);
+        throw error;
+    }
+}
+
+// DELETE - Eliminar tarea
+async function eliminarTareaDeSupabase(id) {
+    try {
+        const { error } = await supabaseClient
+            .from('tasks')
+            .delete()
+            .eq('id', id);
+
+        if (error) throw error;
+        console.log('Tarea eliminada:', id);
+        return true;
+    } catch (error) {
+        console.error('Error al eliminar tarea:', error);
+        throw error;
+    }
+}
+
+
 // ===============================================
 // CREAR TAREA
 // ===============================================
 
-function manejarCrearTarea(e) {
+async function manejarCrearTarea(e) {
     e.preventDefault();
 
-    // Obtener valores del formulario
+    if (cargando) return;
+
     const title = document.getElementById('title').value.trim();
     const description = document.getElementById('description').value.trim();
     const deadline = document.getElementById('deadline').value;
     const priority = document.getElementById('priority').value;
 
-    // Validar datos
     if (!validarFormulario(title, description, deadline)) {
         return;
     }
 
-    // Limpiar mensajes de error
     limpiarErrores();
 
-    // Crear objeto tarea
-    const nuevaTarea = {
-        id: idContador++,
-        title: title,
-        description: description,
-        completed: false,
-        created_at: new Date().toISOString(),
-        deadline: deadline,
-        priority: priority
-    };
+    try {
+        mostrarCargando(true);
 
-    // Agregar tarea al array
-    tareas.push(nuevaTarea);
+        const nuevaTarea = await crearTareaEnSupabase(title, description, deadline, priority);
+        tareas.unshift(nuevaTarea);
 
-    // Guardar en localStorage
-    guardarTareasEnLocal();
+        mostrarMensajeExito('¡Tarea agregada correctamente!');
+        document.getElementById('taskForm').reset();
+        mostrarTareas();
 
-    // Mostrar mensaje de éxito
-    mostrarMensajeExito('¡Tarea agregada correctamente!');
-
-    // Limpiar formulario
-    document.getElementById('taskForm').reset();
-
-    // Actualizar vista
-    mostrarTareas();
+    } catch (error) {
+        mostrarError('Error al crear tarea: ' + error.message);
+    } finally {
+        mostrarCargando(false);
+    }
 }
 
 // ===============================================
@@ -102,11 +184,8 @@ function manejarCrearTarea(e) {
 
 function validarFormulario(title, description, deadline) {
     let esValido = true;
-
-    // Limpiar errores previos
     limpiarErrores();
 
-    // Validar título
     if (title === '' || title.length < 3) {
         mostrarError('titleError', 'El título debe tener al menos 3 caracteres');
         esValido = false;
@@ -117,13 +196,11 @@ function validarFormulario(title, description, deadline) {
         esValido = false;
     }
 
-    // Validar descripción si la tiene
     if (description.length > 500) {
         mostrarError('descriptionError', 'La descripción no puede exceder 500 caracteres');
         esValido = false;
     }
 
-    // Validar fecha límite si está presente
     if (deadline) {
         const fechaDeadline = new Date(deadline);
         const fechaHoy = new Date();
@@ -156,10 +233,13 @@ function mostrarMensajeExito(mensaje) {
     elemento.textContent = mensaje;
     elemento.classList.add('show');
 
-    // Ocultar después de 3 segundos
     setTimeout(() => {
         elemento.classList.remove('show');
     }, 3000);
+}
+
+function mostrarCargando(mostrar) {
+    cargando = mostrar;
 }
 
 // ===============================================
@@ -168,42 +248,32 @@ function mostrarMensajeExito(mensaje) {
 
 function mostrarTareas() {
     const tasksList = document.getElementById('tasksList');
-    
-    // Filtrar tareas según criterios
     let tareasAMostrar = filtrarTareas();
 
-    // Si no hay tareas, mostrar mensaje vacío
     if (tareasAMostrar.length === 0) {
         tasksList.innerHTML = '<p class="empty-message">No hay tareas que coincidan con tu búsqueda.</p>';
         actualizarEstadisticas();
         return;
     }
 
-    // Construir HTML de tareas
     tasksList.innerHTML = tareasAMostrar.map(tarea => crearElementoTarea(tarea)).join('');
-
-    // Agregar event listeners a los elementos creados
     agregarEventListenersTareas();
-
-    // Actualizar estadísticas
     actualizarEstadisticas();
 }
 
 function filtrarTareas() {
     let tareasFiltradasPorEstado = tareas;
 
-    // Filtrar por estado (todas, pendientes, completadas)
     if (filtroActual === 'pendientes') {
         tareasFiltradasPorEstado = tareas.filter(t => !t.completed);
     } else if (filtroActual === 'completadas') {
         tareasFiltradasPorEstado = tareas.filter(t => t.completed);
     }
 
-    // Filtrar por búsqueda
     if (busquedaActual.trim() !== '') {
         tareasFiltradasPorEstado = tareasFiltradasPorEstado.filter(t => 
             t.title.toLowerCase().includes(busquedaActual.toLowerCase()) ||
-            t.description.toLowerCase().includes(busquedaActual.toLowerCase())
+            (t.description && t.description.toLowerCase().includes(busquedaActual.toLowerCase()))
         );
     }
 
@@ -257,7 +327,6 @@ function crearElementoTarea(tarea) {
 }
 
 function agregarEventListenersTareas() {
-    // Event listeners para checkboxes
     const checkboxes = document.querySelectorAll('.task-checkbox');
     checkboxes.forEach(checkbox => {
         checkbox.addEventListener('change', (e) => {
@@ -266,7 +335,6 @@ function agregarEventListenersTareas() {
         });
     });
 
-    // Event listeners para botones de completar
     const botonesCompletar = document.querySelectorAll('.btn-complete');
     botonesCompletar.forEach(boton => {
         boton.addEventListener('click', (e) => {
@@ -275,7 +343,6 @@ function agregarEventListenersTareas() {
         });
     });
 
-    // Event listeners para botones de eliminar
     const botonesEliminar = document.querySelectorAll('.btn-delete');
     botonesEliminar.forEach(boton => {
         boton.addEventListener('click', (e) => {
@@ -289,22 +356,40 @@ function agregarEventListenersTareas() {
 // OPERACIONES CRUD
 // ===============================================
 
-function toggleCompletarTarea(id) {
-    const tarea = tareas.find(t => t.id === id);
-    if (tarea) {
-        tarea.completed = !tarea.completed;
-        guardarTareasEnLocal();
+async function toggleCompletarTarea(id) {
+    try {
+        const tarea = tareas.find(t => t.id === id);
+        if (!tarea) return;
+
+        const nuevoEstado = !tarea.completed;
+        mostrarCargando(true);
+
+        await actualizarTareaEnSupabase(id, { completed: nuevoEstado });
+        tarea.completed = nuevoEstado;
         mostrarTareas();
+
+    } catch (error) {
+        mostrarError('Error al actualizar tarea: ' + error.message);
+    } finally {
+        mostrarCargando(false);
     }
 }
 
-function eliminarTarea(id) {
-    // Confirmar eliminación
+async function eliminarTarea(id) {
     if (confirm('¿Estás seguro de que deseas eliminar esta tarea?')) {
-        tareas = tareas.filter(t => t.id !== id);
-        guardarTareasEnLocal();
-        mostrarTareas();
-        mostrarMensajeExito('Tarea eliminada correctamente');
+        try {
+            mostrarCargando(true);
+
+            await eliminarTareaDeSupabase(id);
+            tareas = tareas.filter(t => t.id !== id);
+            mostrarTareas();
+            mostrarMensajeExito('Tarea eliminada correctamente');
+
+        } catch (error) {
+            mostrarError('Error al eliminar tarea: ' + error.message);
+        } finally {
+            mostrarCargando(false);
+        }
     }
 }
 
@@ -345,29 +430,6 @@ function actualizarEstadisticas() {
     document.getElementById('pendingTasks').textContent = tareasPendientes;
 }
 
-// ===============================================
-// PERSISTENCIA DE DATOS (LocalStorage)
-// ===============================================
-
-function guardarTareasEnLocal() {
-    // Guardar en localStorage
-    localStorage.setItem('cloudtasks_tareas', JSON.stringify(tareas));
-    localStorage.setItem('cloudtasks_contador', idContador.toString());
-}
-
-function cargarTareasDelLocal() {
-    // Cargar del localStorage
-    const tareasGuardadas = localStorage.getItem('cloudtasks_tareas');
-    const contadorGuardado = localStorage.getItem('cloudtasks_contador');
-
-    if (tareasGuardadas) {
-        tareas = JSON.parse(tareasGuardadas);
-    }
-
-    if (contadorGuardado) {
-        idContador = parseInt(contadorGuardado);
-    }
-}
 
 // ===============================================
 // FUNCIONES AUXILIARES
@@ -394,25 +456,8 @@ function escapeHtml(texto) {
 // ===============================================
 // FUNCIONES DE DEPURACIÓN (Opcional)
 // ===============================================
-
-function exportarTareas() {
-    console.log('Tareas actuales:', tareas);
-    return JSON.stringify(tareas, null, 2);
-}
-
-function limpiarTodosDatos() {
-    if (confirm('¿Estás seguro? Esta acción eliminará TODAS las tareas.')) {
-        tareas = [];
-        idContador = 1;
-        guardarTareasEnLocal();
-        mostrarTareas();
-        console.log('Todos los datos han sido eliminados.');
-    }
-}
-
-// Funciones disponibles en consola para pruebas
 window.debugCloudTasks = {
-    exportarTareas,
-    limpiarTodosDatos,
-    verTareas: () => console.table(tareas)
+    exportarTareas: () => { console.log('Tareas actuales:', tareas); return JSON.stringify(tareas, null, 2); },
+    verTareas: () => console.table(tareas),
+    recargarTareas: () => cargarTareasDesdeSupabase()
 };
