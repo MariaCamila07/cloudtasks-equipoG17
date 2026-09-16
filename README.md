@@ -2,6 +2,8 @@
 
 Aplicacion web para la gestion de tareas personales o de equipos de trabajo, desplegada en la nube con servicios administrados.
 
+Nuestra URL es: https://cloudtasks-equipo-g17-6mybjdj0h-cordobamariacamila03-8373.vercel.app/
+
 ## Descripcion
 
 CloudTasks es una aplicacion de gestion de tareas desarrollada como laboratorio del Seminario de Ingenieria de Software de la Universidad ICESI. Permite a los usuarios crear, visualizar, actualizar y eliminar tareas de forma segura y en tiempo real.
