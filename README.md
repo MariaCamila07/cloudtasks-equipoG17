@@ -2,7 +2,7 @@
 
 Aplicacion web para la gestion de tareas personales o de equipos de trabajo, desplegada en la nube con servicios administrados.
 
-Nuestra URL es: https://cloudtasks-equipo-g17-6mybjdj0h-cordobamariacamila03-8373.vercel.app/
+Nuestra URL es: https://www.cloudtasks-g17.site/
 
 ## Descripcion
 
